@@ -70,7 +70,7 @@ Caman.manip = Caman.prototype = {
         if ( !args && canvas_id.substr(0, 1) === "#") {
           canvas = document.getElementById(canvas_id.substr(1));
           if (!canvas) {
-            return;
+            return null;
           }  
         } else {
           
@@ -288,9 +288,9 @@ Caman.extend( Caman, {
     return ret;      
   },
     
-  randomRange: function (min, max, float) {
+  randomRange: function (min, max, floatValue) {
     var rand = min + (Math.random() * (max - min));
-    return typeof float == 'undefined' ? Math.round(rand) : rand.toFixed(float);
+    return typeof floatValue == 'undefined' ? Math.round(rand) : rand.toFixed(floatValue);
   },
   
   /**
@@ -791,6 +791,8 @@ Caman.manip.pixelInfo.prototype.putPixelRelative = function (horiz_offset, vert_
   this.manip.pixel_data[newLoc+1] = rgba.g;
   this.manip.pixel_data[newLoc+2] = rgba.b;
   this.manip.pixel_data[newLoc+3] =  rgba.a;
+
+  return null;
 };
     
 Caman.manip.pixelInfo.prototype.getPixel = function (x, y) {
@@ -1293,7 +1295,7 @@ window.Caman = Caman;
    */
   Caman.manip.channels = function (options) {
     if (typeof(options) !== 'object') {
-      return;
+      return null;
     }
     
     for (var chan in options) {
@@ -1308,7 +1310,7 @@ window.Caman = Caman;
     }
     
     if (options.length === 0) {
-      return;
+      return null;
     }
     
     return this.process(options, function channels(options, rgba) {
@@ -1376,7 +1378,7 @@ window.Caman = Caman;
       }
     }
     
-    bezier = {};
+    var bezier = {};
     
     for (var i = 0; i < 1000; i++) {
       t = i / 1000;
