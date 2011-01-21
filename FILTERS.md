@@ -81,4 +81,8 @@ Applies a sepia filter to the image in adjustable amounts
 
 * Arguments:
   1. Integer (required) how much of the sepia filter to apply, 0 - 100
-  
+
+<h2>vgaize</h2>
+Vgaizes the image.
+
+* Arguments: none!
