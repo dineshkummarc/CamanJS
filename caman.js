@@ -834,7 +834,8 @@ Caman.events  = {
  */
 var ProcessType = {
   SINGLE: 1,
-  KERNEL: 2
+  KERNEL: 2,
+  CONTEXT: 3
 };
 
 /*
@@ -976,10 +977,15 @@ Caman.manip.executeFilter = function (adjust, processFn, type) {
     
     blocks_done++;
 
-    if (blocks_done == Caman.renderBlocks || bnum == -1) {
+    if (blocks_done == Caman.renderBlocks || bnum == -1 || bnum == -10) {
+      // why not to use ProcessType here too?
       if (bnum >= 0) {
         console.log("Filter " + processFn.name + " finished!");
-      } else {
+      }
+      else if(bnum == -10) {
+        console.log("Context filter finished!");
+      }
+      else {
         console.log("Kernel filter finished!");
       }
       
@@ -1080,7 +1086,18 @@ Caman.manip.executeFilter = function (adjust, processFn, type) {
       
     }, 0);
   };
-  
+
+  render_context = function () {
+    console.log("Rendering context filter: " + adjust.name);
+
+    setTimeout(function () {
+      processFn.call(self, self.context, self.canvas);
+
+      // XXXXX: fails to exec with this for some reason...
+      //block_finished(-10);
+    }, 0);
+  };
+
   if (type === ProcessType.SINGLE) {
     // Split the image into its blocks.
     for (var j = 0; j < Caman.renderBlocks; j++) {
@@ -1088,7 +1105,10 @@ Caman.manip.executeFilter = function (adjust, processFn, type) {
      end = start + ((j == Caman.renderBlocks - 1) ? lastBlockN : blockN);
      render_block(j, start, end);
     }
-  } else {
+  } else if(type === ProcessType.CONTEXT) {
+    render_context();
+  }
+  else {
     render_kernel();
   }
 };
@@ -1113,6 +1133,17 @@ Caman.manip.processKernel = function (name, adjust, divisor, bias) {
   
   this.renderQueue.push({adjust: data, processFn: Caman.processKernel, type: ProcessType.KERNEL});
   
+  return this;
+};
+
+Caman.manip.processContext = function (name, adjust, processFn) {
+  var data = {
+      name: name,
+      adjust: adjust
+  };
+
+  this.renderQueue.push({adjust: data, processFn: processFn, type: ProcessType.CONTEXT});
+
   return this;
 };
 
