@@ -1,3 +1,11 @@
+/*
+ * NodeJS compatibility
+ */
+if (!Caman) {
+	var Caman = {manip:{}};
+	exports.plugins = Caman.manip;
+}
+
 (function (Caman) {
 
 Caman.manip.crossProcess = function () {
@@ -21,10 +29,21 @@ Caman.manip.vintage = function (vignette) {
     .saturation(-20);
     
   if (vignette || typeof vignette === 'undefined') {
-    return this.vignette(80, 60);
+    return this.vignette(180, 80);
   }
   
   return ret;
+};
+
+Caman.manip.lomo = function() {
+  return this
+    .brightness(15)
+    .exposure(15)
+    .curves('rgb', [0, 0], [200, 0], [155, 255], [255, 255])
+    .saturation(-20)
+    .gamma(1.8)
+    .vignette(300, 60)
+    .brightness(5);
 };
 
 }(Caman));

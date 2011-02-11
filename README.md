@@ -7,6 +7,9 @@ CamanJS is also not a canvas drawing library, per se.  It's main focus is manipu
 
 If you're looking for more information, <a href="http://blog.meltingice.net/programming/camanjs-javascript-image-manipulation/">here is a blog post</a> that describes the project some more.
 
+<h2>NodeJS Compatibility</h2>
+There is now a version of CamanJS that is made to work with NodeJS.  It has all of the functionality of the normal browser version, including plugins.  Take a look at the <a href="https://github.com/meltingice/CamanJS/tree/node">node branch</a> for more information.
+
 <h2>Block Renderer</h2>
 CamanJS now uses a block rendering system, which gives some notable benefits:
 
@@ -44,7 +47,15 @@ Caman('path/to/image.jpg', '#canvas-id', function () {
 });
 </pre>
 
-or you can use it like this:
+You can also directly point to an image if you don't want to create a separate canvas element.  In this case, the image element will be replaced with the canvas element, and the canvas will be drawn with the image content:
+
+<pre>
+Caman("#image-id", function () {
+	this.contrast(-5).render();
+});
+</pre>
+
+Finally, you can also use it like this:
 
 <pre>
 Caman({

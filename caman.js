@@ -1,10 +1,19 @@
 /*!
- * CamanJS - Image Manipulation Library
+ * CamanJS - Pure HTML5 Javascript (Ca)nvas (Man)ipulation
  * http://camanjs.com/
  *
  * Copyright 2011, Ryan LeFevre
  * Licensed under the new BSD License.
  * See LICENSE for more info.
+ *
+ * Project Contributors:
+ *   Rick Waldron - Plugin Architect and Developer
+ *    Twitter: @rwaldron
+ *    GitHub: http://github.com/rwldrn
+ *
+ *   Cezar Sa Espinola - Developer
+ *    Twitter: @cezarsa
+ *    GitHub: http://github.com/cezarsa
  */
  
 (function () {
@@ -19,6 +28,11 @@ Caman = function ( options ) {
         
     if ( arguments.length === 1 ) {
       options = temp;
+    } else if ( arguments.length === 2) {
+      options = {
+        image: temp,
+        ready: arguments[1] || false
+      };
     } else {
       options = {
         src: temp,
@@ -61,22 +75,23 @@ Caman.manip = Caman.prototype = {
       /*
        * Called once the image is loaded from the server
        */
-      imageReady = function( ) {
+      imageReady = function( loaded_canvas ) {
   
         var args  = arguments.length, 
           canvas_id = !args ? options.canvas : arguments[0],
-          canvas;
+          canvas = loaded_canvas || null;
         
-        if ( !args && canvas_id.substr(0, 1) === "#") {
-          canvas = document.getElementById(canvas_id.substr(1));
-          if (!canvas) {
-            return null;
-          }  
-        } else {
-          
-          return Caman.store[canvas_id];
-        }
-        
+        if (!canvas) {
+          if ( !args && canvas_id.substr(0, 1) === "#") {
+            canvas = document.getElementById(canvas_id.substr(1));
+            if (!canvas) {
+              return;
+            }  
+          } else {
+            return Caman.store[canvas_id];
+          }
+        }      
+
         canvas.width = img.width;
         canvas.height = img.height;
         
@@ -84,6 +99,7 @@ Caman.manip = Caman.prototype = {
         this.canvas_id = canvas_id;
         this.context = canvas.getContext("2d");
         this.context.drawImage(img, 0, 0);
+
         this.image_data = this.context.getImageData(0, 0, img.width, img.height);
         
         this.pixel_data = this.image_data.data;
@@ -107,19 +123,38 @@ Caman.manip = Caman.prototype = {
     this.options = options;
     
     if ( typeof options !== "string" ) {
-      
-      img.src = options.src; 
-    
-      img.onload = function() {
-         imageReady.call(that);
-      };
-      
-      if ( !Caman.ready ) {
+      if (options.image) {
+        // Converting an image element to a canvas element
         document.addEventListener("DOMContentLoaded", function() {
+          var canvas = document.createElement('canvas'),
+          image = document.getElementById(options.image.substr(1));
+          
+          img = image;
+          
+          canvas.id = image.id;
+          
+          image.parentNode.replaceChild(canvas, image);
+
           Caman.ready = true;
-        }, false);          
+          
+          img.onload = function () {
+            imageReady.call(that, canvas);
+          };
+        }, false);
+        
+      } else {
+        img.src = options.src; 
+
+        img.onload = function() {
+           imageReady.call(that);
+        };
+        
+        if ( !Caman.ready ) {
+          document.addEventListener("DOMContentLoaded", function() {
+            Caman.ready = true;
+          }, false);          
+        }
       }
-      
     } else {
       // Handle Caman('#index')
       return Caman.store[options];
@@ -175,8 +210,8 @@ Caman.manip = Caman.prototype = {
     return this.canvas.toDataURL("image/" + type);
   },
   
-  revert: function () {
-    this.options.ready = function () {};
+  revert: function (ready) {
+    this.options.ready = ready || function () {};
     this.load(this.options);
   },
   
@@ -614,6 +649,72 @@ Caman.extend( Caman, {
     b = parseInt(hex.substr(4, 2), 16);
     
     return {r: r, g: g, b: b};
+  },
+  
+  bezier: function (start, ctrl1, ctrl2, end, lowBound, highBound) {
+    var Ax, Bx, Cx, Ay, By, Cy,
+    x0 = start[0], y0 = start[1],
+    x1 = ctrl1[0], y1 = ctrl1[1],
+    x2 = ctrl2[0], y2 = ctrl2[1],
+    x3 = end[0], y3 = end[1],
+    t, curveX, curveY;
+    
+    // Calculate our X and Y coefficients
+    Cx = 3 * (x1 - x0);
+    Bx = 3 * (x2 - x1) - Cx;
+    Ax = x3 - x0 - Cx - Bx;
+    
+    Cy = 3 * (y1 - y0);
+    By = 3 * (y2 - y1) - Cy;
+    Ay = y3 - y0 - Cy - By;
+    
+    bezier = {};
+    
+    for (var i = 0; i < 1000; i++) {
+      t = i / 1000;
+      
+      curveX = Math.round((Ax * Math.pow(t, 3)) + (Bx * Math.pow(t, 2)) + (Cx * t) + x0);
+      curveY = Math.round((Ay * Math.pow(t, 3)) + (By * Math.pow(t, 2)) + (Cy * t) + y0);
+      
+      if (lowBound && curveY < lowBound) {
+        curveY = lowBound;
+      } else if (highBound && curveY > highBound) {
+        curveY = highBound;
+      }
+      
+      bezier[curveX] = curveY;
+    }
+    
+    // Do a search for missing values in the bezier array and use linear interpolation
+    // to approximate their values.
+    var leftCoord, rightCoord, j, slope, bint;
+    if (bezier.length < end[0] + 1) {
+      for (i = 0; i <= end[0]; i++) {
+        if (typeof bezier[i] === "undefined") {
+          // The value to the left will always be defined. We don't have to worry about
+          // when i = 0 because the starting point is guaranteed (I think...)
+          leftCoord = [i-1, bezier[i-1]];
+          
+          // Find the first value to the right that was found. Ideally this loop will break
+          // very quickly.
+          for (j = i; j <= end[0]; j++) {
+            if (typeof bezier[j] !== "undefined") {
+              rightCoord = [j, bezier[j]];
+              break;
+            }
+          }
+          
+          bezier[i] = leftCoord[1] + ((rightCoord[1] - leftCoord[1]) / (rightCoord[0] - leftCoord[0])) * (i - leftCoord[0]);
+        }
+      }
+    }
+    
+    // Edge case
+    if (typeof bezier[end[0]] === "undefined") {
+      bezier[end[0]] = bezier[254];
+    }
+    
+    return bezier;
   },
   
   processKernel: function (adjust, kernel, divisor, bias) {
@@ -1102,9 +1203,9 @@ window.Caman = Caman;
   };
   
   Caman.manip.contrast = function(adjust) {
+    adjust = (adjust + 100) / 100;
+    adjust = Math.pow(adjust, 2);
 
-    adjust = Math.pow((100 + adjust) / 100, 2);
-    
     return this.process( adjust, function contrast(adjust, rgba) {
       /* Red channel */
       rgba.r /= 255;
@@ -1354,21 +1455,7 @@ window.Caman = Caman;
    *    end   - [x, y] (end of curve; 0 - 255)
    */
   Caman.manip.curves = function (chan, start, ctrl1, ctrl2, end) {
-    var Ax, Bx, Cx, Ay, By, Cy,
-    x0 = start[0], y0 = start[1],
-    x1 = ctrl1[0], y1 = ctrl1[1],
-    x2 = ctrl2[0], y2 = ctrl2[1],
-    x3 = end[0], y3 = end[1],
-    t, curveX, curveY;
-    
-    // Calculate our X and Y coefficients
-    Cx = 3 * (x1 - x0);
-    Bx = 3 * (x2 - x1) - Cx;
-    Ax = x3 - x0 - Cx - Bx;
-    
-    Cy = 3 * (y1 - y0);
-    By = 3 * (y2 - y1) - Cy;
-    Ay = y3 - y0 - Cy - By;
+    var bezier;
     
     if (typeof chan === 'string') {
       if (chan == 'rgb') {
@@ -1378,22 +1465,7 @@ window.Caman = Caman;
       }
     }
     
-    var bezier = {};
-    
-    for (var i = 0; i < 1000; i++) {
-      t = i / 1000;
-      
-      curveX = Math.round((Ax * Math.pow(t, 3)) + (Bx * Math.pow(t, 2)) + (Cx * t) + x0);
-      curveY = Math.round((Ay * Math.pow(t, 3)) + (By * Math.pow(t, 2)) + (Cy * t) + y0);
-      
-      if (curveY > 255) {
-        curveY = 255;
-      } else if (curveY < 0) {
-        curveY = 0;
-      }
-      
-      bezier[curveX] = curveY;
-    }
+    bezier = Caman.bezier(start, ctrl1, ctrl2, end, 0, 255);
     
     // If our curve starts after x = 0, initialize it with a flat line until
     // the curve begins.
@@ -1408,35 +1480,6 @@ window.Caman = Caman;
       for (i = end[0]; i <= 255; i++) {
         bezier[i] = end[1];
       }
-    }
-    
-    // Do a search for missing values in the bezier array and use linear interpolation
-    // to approximate their values.
-    var leftCoord, rightCoord, j, slope, bint;
-    if (bezier.length < 256) {
-      for (i = 0; i <= 255; i++) {
-        if (typeof bezier[i] === "undefined") {
-          // The value to the left will always be defined. We don't have to worry about
-          // when i = 0 because the starting point is guaranteed (I think...)
-          leftCoord = [i-1, bezier[i-1]];
-          
-          // Find the first value to the right that was found. Ideally this loop will break
-          // very quickly.
-          for (j = i; j <= 255; j++) {
-            if (typeof bezier[j] !== "undefined") {
-              rightCoord = [j, bezier[j]];
-              break;
-            }
-          }
-          
-          bezier[i] = leftCoord[1] + ((rightCoord[1] - leftCoord[1]) / (rightCoord[0] - leftCoord[0])) * (i - leftCoord[0]);
-        }
-      }
-    }
-    
-    // Edge case
-    if (typeof bezier[255] === "undefined") {
-      bezier[255] = bezier[254];
     }
     
     return this.process({bezier: bezier, chans: chan}, function curves(opts, rgba) {
